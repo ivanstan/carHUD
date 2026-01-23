@@ -8,6 +8,10 @@ import { colors } from '../theme/colors';
 export const OBDScreen: React.FC = () => {
   const { data: obd, isBleAvailable } = useOBD();
 
+  // Safe format function to prevent crashes on undefined values
+  const fmt = (v: number | null | undefined, digits = 1): string =>
+    typeof v === 'number' ? v.toFixed(digits) : '--';
+
   // Format runtime as HH:MM:SS
   const formatRunTime = (seconds: number): string => {
     const h = Math.floor(seconds / 3600);
@@ -138,7 +142,7 @@ export const OBDScreen: React.FC = () => {
             
             <DataBox
               label="FUEL RATE"
-              value={obd.fuelRate.toFixed(1)}
+              value={fmt(obd.fuelRate, 1)}
               unit="L/h"
               color={colors.secondary}
               size="medium"
@@ -154,7 +158,7 @@ export const OBDScreen: React.FC = () => {
             
             <DataBox
               label="MAF RATE"
-              value={obd.mafRate.toFixed(1)}
+              value={fmt(obd.mafRate, 1)}
               unit="g/s"
               color={colors.secondary}
               size="medium"
@@ -233,7 +237,7 @@ export const OBDScreen: React.FC = () => {
           <View style={styles.dataRow}>
             <DataBox
               label="BATTERY"
-              value={obd.batteryVoltage.toFixed(1)}
+              value={fmt(obd.batteryVoltage, 1)}
               unit="V"
               color={obd.batteryVoltage < 12 ? colors.danger : obd.batteryVoltage < 12.4 ? colors.warning : colors.primary}
               size="medium"
