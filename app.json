@@ -1,0 +1,63 @@
+{
+  "expo": {
+    "name": "CarHUD",
+    "slug": "car-hud",
+    "version": "1.0.0",
+    "orientation": "landscape",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0a0f"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to your OBD-II adapter",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to connect to your OBD-II adapter",
+        "NSLocationWhenInUseUsageDescription": "This app uses location to show speed and heading"
+      }
+    },
+    "android": {
+      "permissions": [
+        "android.permission.BLUETOOTH",
+        "android.permission.BLUETOOTH_ADMIN",
+        "android.permission.BLUETOOTH_CONNECT",
+        "android.permission.BLUETOOTH_SCAN",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "package": "com.carhud.app"
+    },
+    "plugins": [
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": false,
+          "modes": [
+            "peripheral",
+            "central"
+          ]
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow CarHUD to use your location for speed and heading display."
+        }
+      ],
+      [
+        "expo-sensors",
+        {
+          "motionPermission": "Allow CarHUD to access device motion for compass and orientation."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "47e89dde-0b37-4252-a9ad-4810031ac7ed"
+      }
+    }
+  }
+}
