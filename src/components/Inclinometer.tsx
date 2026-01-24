@@ -47,8 +47,8 @@ export const Inclinometer: React.FC<InclinometerProps> = ({
   };
 
   // Render angle markers around the circle
-  const renderAngleMarkers = () => {
-    const markers = [];
+  const renderAngleMarkers = (): React.ReactElement[] => {
+    const markers: React.ReactElement[] = [];
     const angles = [-45, -30, -15, 0, 15, 30, 45];
     const radius = size * 0.42;
     
@@ -329,5 +329,6 @@ const styles = StyleSheet.create({
 });
 
 export default Inclinometer;
+
 
 

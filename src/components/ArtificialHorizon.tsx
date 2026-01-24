@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
   G,
   Rect,
@@ -261,16 +261,16 @@ export const ArtificialHorizon: React.FC<ArtificialHorizonProps> = ({
 
       {/* Pitch readout */}
       <View style={styles.pitchReadout}>
-        <SvgText style={styles.readoutText}>
+        <Text style={styles.readoutText}>
           P {pitch > 0 ? '+' : ''}{pitch}°
-        </SvgText>
+        </Text>
       </View>
 
       {/* Roll readout */}
       <View style={styles.rollReadout}>
-        <SvgText style={styles.readoutText}>
+        <Text style={styles.readoutText}>
           R {roll > 0 ? '+' : ''}{roll}°
-        </SvgText>
+        </Text>
       </View>
     </View>
   );
@@ -298,4 +298,7 @@ const styles = StyleSheet.create({
 });
 
 export default ArtificialHorizon;
+
+
+
 

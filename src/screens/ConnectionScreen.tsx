@@ -8,7 +8,6 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { Device } from 'react-native-ble-plx';
 import { useOBD } from '../hooks';
 import { colors } from '../theme/colors';
 
@@ -16,8 +15,8 @@ export const ConnectionScreen: React.FC = () => {
   const { 
     data, 
     isScanning, 
-    devices, 
-    scanForDevices, 
+    availableDevices, 
+    startScan, 
     stopScan,
     connect, 
     disconnect,
@@ -31,14 +30,14 @@ export const ConnectionScreen: React.FC = () => {
     if (isScanning) {
       stopScan();
     } else {
-      await scanForDevices();
+      await startScan();
     }
   };
 
-  const handleConnect = async (device: Device) => {
+  const handleConnect = async (device: { id: string; name: string }) => {
     try {
       setConnecting(device.id);
-      await connect(device);
+      await connect(device.id);
     } catch (err) {
       console.error('Connection failed:', err);
     } finally {
@@ -50,21 +49,35 @@ export const ConnectionScreen: React.FC = () => {
     await disconnect();
   };
 
-  const renderDevice = ({ item }: { item: Device }) => (
-    <TouchableOpacity
-      style={styles.deviceItem}
-      onPress={() => handleConnect(item)}
-      disabled={connecting !== null || data.isConnected}
-    >
-      <View style={styles.deviceInfo}>
-        <Text style={styles.deviceName}>{item.name || 'Unknown'}</Text>
-        <Text style={styles.deviceId}>{item.id}</Text>
-      </View>
-      {connecting === item.id && (
-        <ActivityIndicator color={colors.primary} size="small" />
-      )}
-    </TouchableOpacity>
-  );
+  const renderDevice = ({ item }: { item: { id: string; name: string } }) => {
+    const isBLE = item.name.toUpperCase().includes('BLE') || item.name.toUpperCase().includes('LE');
+    
+    return (
+      <TouchableOpacity
+        style={[styles.deviceItem, isBLE && styles.deviceItemBLE]}
+        onPress={() => handleConnect(item)}
+        disabled={connecting !== null || data.isConnected}
+      >
+        <View style={styles.deviceInfo}>
+          <View style={styles.deviceNameRow}>
+            <Text style={styles.deviceName}>{item.name || 'Unknown'}</Text>
+            {isBLE && (
+              <View style={styles.bleBadge}>
+                <Text style={styles.bleBadgeText}>BLE</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.deviceId}>{item.id}</Text>
+          {isBLE && (
+            <Text style={styles.recommendedText}>✓ Recommended (Low Energy)</Text>
+          )}
+        </View>
+        {connecting === item.id && (
+          <ActivityIndicator color={colors.primary} size="small" />
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -139,7 +152,7 @@ export const ConnectionScreen: React.FC = () => {
           )}
 
           <FlatList
-            data={devices}
+            data={availableDevices}
             keyExtractor={(item) => item.id}
             renderItem={renderDevice}
             style={styles.deviceList}
@@ -171,6 +184,9 @@ export const ConnectionScreen: React.FC = () => {
         </Text>
         <Text style={styles.instructionText}>
           4. Select your adapter from the list to connect
+        </Text>
+        <Text style={styles.instructionNote}>
+          {'\n'}Note: If you see two devices (e.g., "OBDII" and "OBDBLE"), choose the BLE version for better battery efficiency and reliability.
         </Text>
       </View>
     </View>
@@ -305,8 +321,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  deviceItemBLE: {
+    borderColor: colors.primary,
+    borderWidth: 2,
+  },
   deviceInfo: {
     flex: 1,
+  },
+  deviceNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   deviceName: {
     color: colors.primary,
@@ -314,11 +339,30 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     fontWeight: 'bold',
   },
+  bleBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  bleBadgeText: {
+    color: colors.background,
+    fontSize: 9,
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
   deviceId: {
     color: colors.textDim,
     fontSize: 10,
     fontFamily: 'monospace',
     marginTop: 4,
+  },
+  recommendedText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   emptyState: {
     alignItems: 'center',
@@ -356,6 +400,14 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'monospace',
     lineHeight: 20,
+  },
+  instructionNote: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    lineHeight: 16,
+    fontStyle: 'italic',
+    marginTop: 4,
   },
   unavailableContainer: {
     flex: 1,

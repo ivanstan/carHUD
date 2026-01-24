@@ -45,8 +45,8 @@ export const GForceMeter: React.FC<GForceMeterProps> = ({
   };
 
   // Render G-force rings
-  const renderRings = () => {
-    const rings = [];
+  const renderRings = (): React.ReactElement[] => {
+    const rings: React.ReactElement[] = [];
     const gValues = [0.25, 0.5, 0.75, 1.0, maxG];
     
     gValues.forEach((g, index) => {
@@ -252,5 +252,6 @@ const styles = StyleSheet.create({
 });
 
 export default GForceMeter;
+
 
 

@@ -129,6 +129,8 @@ const ELM327_NOTIFY_UUID = '0000fff1-0000-1000-8000-00805f9b34fb';
 const SPP_SERVICE_UUID = '00001101-0000-1000-8000-00805f9b34fb';
 
 class OBDService {
+  private static instance: OBDService | null = null;
+  
   private bleManager: BleManager | null = null;
   private device: Device | null = null;
   private writeCharacteristic: Characteristic | null = null;
@@ -137,8 +139,9 @@ class OBDService {
   private pollingInterval: NodeJS.Timeout | null = null;
   private responseBuffer: string = '';
   private isAvailable: boolean = false;
+  private scannedDevices: Map<string, Device> = new Map();
 
-  constructor() {
+  private constructor() {
     try {
       this.bleManager = new BleManager();
       this.isAvailable = true;
@@ -147,6 +150,13 @@ class OBDService {
       this.bleManager = null;
       this.isAvailable = false;
     }
+  }
+
+  static getInstance(): OBDService {
+    if (!OBDService.instance) {
+      OBDService.instance = new OBDService();
+    }
+    return OBDService.instance;
   }
 
   isBleAvailable(): boolean {
@@ -191,6 +201,10 @@ class OBDService {
       throw new Error('Bluetooth permissions not granted');
     }
 
+    // Clear previous scan results
+    this.scannedDevices.clear();
+    const seenBaseDevices = new Set<string>(); // Track base device names to filter duplicates
+
     return new Promise((resolve, reject) => {
       this.bleManager!.startDeviceScan(
         null,
@@ -211,6 +225,24 @@ class OBDService {
               name.includes('VEEPEAK') ||
               name.includes('BAFX')
             ) {
+              // Check if this is a BLE device (preferred) vs Classic Bluetooth
+              // BLE devices often have "BLE" in name, Classic has just "OBDII" or similar
+              const isBLE = name.includes('BLE') || name.includes('LE');
+              const baseDeviceName = name.replace(/BLE|LE/g, '').trim();
+
+              // If we've already seen a BLE version of this device, skip Classic
+              if (!isBLE && seenBaseDevices.has(baseDeviceName)) {
+                console.log(`Skipping Classic Bluetooth device: ${device.name}, BLE version already found`);
+                return;
+              }
+
+              // If this is BLE and we've seen Classic, remove Classic from results
+              if (isBLE) {
+                seenBaseDevices.add(baseDeviceName);
+              }
+
+              // Store device for later connection
+              this.scannedDevices.set(device.id, device);
               onDeviceFound(device);
             }
           }
@@ -219,7 +251,7 @@ class OBDService {
 
       // Stop scanning after 10 seconds
       setTimeout(() => {
-        this.bleManager.stopDeviceScan();
+        this.bleManager?.stopDeviceScan();
         resolve();
       }, 10000);
     });
@@ -227,6 +259,14 @@ class OBDService {
 
   stopScan(): void {
     this.bleManager?.stopDeviceScan();
+  }
+
+  async connect(deviceId: string): Promise<void> {
+    const device = this.scannedDevices.get(deviceId);
+    if (!device) {
+      throw new Error('Device not found. Please scan for devices first.');
+    }
+    return this.connectToDevice(device);
   }
 
   async connectToDevice(device: Device): Promise<void> {
@@ -553,6 +593,8 @@ class OBDService {
   }
 }
 
-export const obdService = new OBDService();
+// Export singleton instance
+const obdService = OBDService.getInstance();
+export { OBDService };
 export default obdService;
 
