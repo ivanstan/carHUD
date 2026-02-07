@@ -6,6 +6,7 @@ import {
   TouchableOpacity, 
   FlatList,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useOBD } from '../hooks';
@@ -22,6 +23,8 @@ export const ConnectionScreen: React.FC = () => {
     disconnect,
     error,
     isBleAvailable,
+    showAllDevices,
+    setShowAllDevices,
   } = useOBD();
   
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -30,7 +33,13 @@ export const ConnectionScreen: React.FC = () => {
     if (isScanning) {
       stopScan();
     } else {
+      console.log('========================================');
+      console.log('USER INITIATED DEVICE SCAN');
+      console.log('========================================');
       await startScan();
+      console.log('========================================');
+      console.log('SCAN FINISHED - Devices in UI:', availableDevices.length);
+      console.log('========================================');
     }
   };
 
@@ -129,6 +138,19 @@ export const ConnectionScreen: React.FC = () => {
       ) : (
         <>
           <View style={styles.scanSection}>
+            <View style={styles.filterToggle}>
+              <Text style={styles.filterToggleLabel}>
+                Show all Bluetooth devices
+              </Text>
+              <Switch
+                value={showAllDevices}
+                onValueChange={setShowAllDevices}
+                trackColor={{ false: colors.gaugeBorder, true: colors.primary }}
+                thumbColor={colors.background}
+                disabled={isScanning}
+              />
+            </View>
+            
             <TouchableOpacity 
               style={[styles.scanButton, isScanning && styles.scanButtonActive]}
               onPress={handleScan}
@@ -141,7 +163,11 @@ export const ConnectionScreen: React.FC = () => {
             </TouchableOpacity>
             
             {isScanning && (
-              <Text style={styles.scanningText}>Scanning for OBD adapters...</Text>
+              <Text style={styles.scanningText}>
+                {showAllDevices 
+                  ? 'Scanning for all Bluetooth devices...' 
+                  : 'Scanning for OBD adapters...'}
+              </Text>
             )}
           </View>
 
@@ -160,9 +186,32 @@ export const ConnectionScreen: React.FC = () => {
             ListEmptyComponent={
               !isScanning ? (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>No devices found</Text>
+                  <Text style={styles.emptyText}>
+                    {showAllDevices ? 'No Bluetooth devices found' : 'No OBD devices found'}
+                  </Text>
                   <Text style={styles.emptySubtext}>
-                    Make sure your OBD-II adapter is powered on and in pairing mode
+                    {showAllDevices ? (
+                      <>
+                        No Bluetooth devices were detected.
+                        {'\n\n'}Make sure:
+                        {'\n'}• Bluetooth is enabled on your phone
+                        {'\n'}• Your OBD adapter is powered on
+                        {'\n'}• Car ignition is ON
+                        {'\n'}• The adapter is within range
+                      </>
+                    ) : (
+                      <>
+                        Make sure your OBD-II adapter is:
+                        {'\n'}• Plugged into the car's OBD port
+                        {'\n'}• Powered on (ignition ON)
+                        {'\n'}• Within range (under dashboard)
+                        {'\n'}• Not paired in phone Bluetooth settings
+                        {'\n\n'}
+                        <Text style={styles.debugHighlight}>Can't find your adapter?</Text>
+                        {'\n'}1. Check the console logs for all detected devices
+                        {'\n'}2. Try enabling "Show all Bluetooth devices" above
+                      </>
+                    )}
                   </Text>
                 </View>
               ) : null
@@ -268,6 +317,23 @@ const styles = StyleSheet.create({
   scanSection: {
     marginBottom: 16,
     alignItems: 'center',
+  },
+  filterToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.gaugeBorder,
+  },
+  filterToggleLabel: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontFamily: 'monospace',
   },
   scanButton: {
     backgroundColor: colors.primary,
@@ -380,6 +446,11 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  debugHighlight: {
+    color: colors.warning,
+    fontWeight: 'bold',
+    fontSize: 12,
   },
   instructions: {
     backgroundColor: colors.backgroundSecondary,

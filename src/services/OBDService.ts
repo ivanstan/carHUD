@@ -191,69 +191,133 @@ class OBDService {
     return true;
   }
 
-  async scanForDevices(onDeviceFound: (device: Device) => void): Promise<void> {
+  async scanForDevices(
+    onDeviceFound: (device: Device) => void,
+    options?: { showAllDevices?: boolean }
+  ): Promise<void> {
     if (!this.bleManager) {
       throw new Error('Bluetooth not available. Please use a development build.');
     }
     
+    console.log('Requesting Bluetooth permissions...');
     const hasPermission = await this.requestPermissions();
     if (!hasPermission) {
-      throw new Error('Bluetooth permissions not granted');
+      console.error('Bluetooth permissions denied');
+      throw new Error('Bluetooth permissions not granted. Please enable Location and Bluetooth in Settings.');
+    }
+    console.log('✓ Permissions granted');
+
+    // Check if Bluetooth is powered on
+    const state = await this.bleManager.state();
+    console.log('Bluetooth state:', state);
+    if (state !== 'PoweredOn') {
+      throw new Error(`Bluetooth is ${state}. Please turn on Bluetooth.`);
     }
 
     // Clear previous scan results
     this.scannedDevices.clear();
     const seenBaseDevices = new Set<string>(); // Track base device names to filter duplicates
+    
+    console.log('Starting device scan...');
+    console.log('==================================');
 
     return new Promise((resolve, reject) => {
+      let devicesFound = 0;
+      let obdDevicesFound = 0;
+      
       this.bleManager!.startDeviceScan(
         null,
         { allowDuplicates: false },
         (error, device) => {
           if (error) {
+            console.error('Scan error:', error);
             reject(error);
             return;
           }
 
-          if (device && device.name) {
-            // Look for OBD adapters (usually named OBD, ELM, or OBDII)
-            const name = device.name.toUpperCase();
-            if (
-              name.includes('OBD') ||
-              name.includes('ELM') ||
-              name.includes('VGATE') ||
-              name.includes('VEEPEAK') ||
-              name.includes('BAFX')
-            ) {
-              // Check if this is a BLE device (preferred) vs Classic Bluetooth
-              // BLE devices often have "BLE" in name, Classic has just "OBDII" or similar
-              const isBLE = name.includes('BLE') || name.includes('LE');
-              const baseDeviceName = name.replace(/BLE|LE/g, '').trim();
+          if (device) {
+            // Log ALL devices for debugging
+            if (device.name) {
+              console.log(`[${devicesFound + 1}] Found device: "${device.name}" | ID: ${device.id}`);
+              devicesFound++;
+              
+              const name = device.name.toUpperCase();
+              
+              // Relaxed filtering - show device if it has OBD-related keywords OR show all named devices
+              // This helps users find their adapter even if it has an unusual name
+              const isLikelyOBD = 
+                name.includes('OBD') ||
+                name.includes('ELM') ||
+                name.includes('VGATE') ||
+                name.includes('VEEPEAK') ||
+                name.includes('BAFX') ||
+                name.includes('KONNWEI') ||
+                name.includes('SCAN') ||
+                name.includes('V-LINK') ||
+                name.includes('CARISTA');
+              
+              // If showAllDevices option is enabled, bypass the filter
+              const shouldShow = options?.showAllDevices || isLikelyOBD;
+              
+              if (shouldShow) {
+                if (options?.showAllDevices && !isLikelyOBD) {
+                  console.log(`  → Showing device (ALL devices mode enabled)`);
+                } else {
+                  console.log(`  ✓ MATCHES OBD filter - adding to list`);
+                }
+                obdDevicesFound++;
+                
+                // Check if this is a BLE device (preferred) vs Classic Bluetooth
+                const isBLE = name.includes('BLE') || name.includes('LE');
+                const baseDeviceName = name.replace(/BLE|LE/g, '').trim();
 
-              // If we've already seen a BLE version of this device, skip Classic
-              if (!isBLE && seenBaseDevices.has(baseDeviceName)) {
-                console.log(`Skipping Classic Bluetooth device: ${device.name}, BLE version already found`);
-                return;
+                // If we've already seen a BLE version of this device, skip Classic
+                if (!isBLE && seenBaseDevices.has(baseDeviceName)) {
+                  console.log(`  → Skipping Classic Bluetooth variant (BLE version already found)`);
+                  obdDevicesFound--;
+                  return;
+                }
+
+                // If this is BLE and we've seen Classic, remove Classic from results
+                if (isBLE) {
+                  seenBaseDevices.add(baseDeviceName);
+                }
+
+                // Store device for later connection
+                this.scannedDevices.set(device.id, device);
+                onDeviceFound(device);
+              } else {
+                console.log(`  ✗ Does not match OBD filter - skipped`);
               }
-
-              // If this is BLE and we've seen Classic, remove Classic from results
-              if (isBLE) {
-                seenBaseDevices.add(baseDeviceName);
-              }
-
-              // Store device for later connection
-              this.scannedDevices.set(device.id, device);
-              onDeviceFound(device);
+            } else {
+              console.log(`[Unnamed device] ID: ${device.id} - skipped`);
             }
           }
         }
       );
 
-      // Stop scanning after 10 seconds
+      // Stop scanning after 15 seconds (increased from 10 for better discovery)
       setTimeout(() => {
         this.bleManager?.stopDeviceScan();
+        console.log('==================================');
+        console.log(`Scan completed:`);
+        console.log(`  - Total devices found: ${devicesFound}`);
+        console.log(`  - OBD devices matched: ${obdDevicesFound}`);
+        console.log(`  - Devices in list: ${this.scannedDevices.size}`);
+        console.log('==================================');
+        if (devicesFound === 0) {
+          console.log('⚠ No devices found at all. Possible issues:');
+          console.log('  1. Bluetooth adapter not powered on');
+          console.log('  2. Car ignition not on');
+          console.log('  3. Adapter out of range');
+          console.log('  4. Bluetooth permissions not fully granted');
+        } else if (obdDevicesFound === 0) {
+          console.log('⚠ Devices found but none matched OBD filter.');
+          console.log('  Check the device names above. If you see your OBD adapter,');
+          console.log('  its name might not contain keywords like OBD, ELM, VGATE, etc.');
+        }
         resolve();
-      }, 10000);
+      }, 15000);
     });
   }
 

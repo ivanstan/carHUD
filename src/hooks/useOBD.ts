@@ -71,6 +71,8 @@ export interface UseOBDResult {
   availableDevices: Array<{ id: string; name: string }>;
   error: string | null;
   isBleAvailable: boolean;
+  showAllDevices: boolean;
+  setShowAllDevices: (show: boolean) => void;
   startScan: () => Promise<void>;
   stopScan: () => void;
   connect: (deviceId: string) => Promise<void>;
@@ -89,6 +91,7 @@ export const useOBD = (): UseOBDResult => {
   const [connectedDevice, setConnectedDevice] = useState<string | null>(null);
   const [availableDevices, setAvailableDevices] = useState<Array<{ id: string; name: string }>>([]);
   const [error, setError] = useState<string | null>(null);
+  const [showAllDevices, setShowAllDevices] = useState(false);
   const [obdService] = useState(() => OBDService.getInstance());
 
   // Check if BLE is available
@@ -143,14 +146,14 @@ export const useOBD = (): UseOBDResult => {
           }
           return [...prev, { id: device.id, name: device.name || 'Unknown Device' }];
         });
-      });
+      }, { showAllDevices });
 
       setIsScanning(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Scan failed');
       setIsScanning(false);
     }
-  }, [isBleAvailable, obdService]);
+  }, [isBleAvailable, obdService, showAllDevices]);
 
   const stopScan = useCallback(() => {
     obdService.stopScan();
@@ -199,6 +202,8 @@ export const useOBD = (): UseOBDResult => {
     availableDevices,
     error,
     isBleAvailable,
+    showAllDevices,
+    setShowAllDevices,
     startScan,
     stopScan,
     connect,
