@@ -1,12 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
   StyleSheet, 
   TouchableOpacity, 
-  FlatList,
   ActivityIndicator,
   Switch,
+  ScrollView,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useOBD } from '../hooks';
@@ -28,6 +28,14 @@ export const ConnectionScreen: React.FC = () => {
   } = useOBD();
   
   const [connecting, setConnecting] = useState<string | null>(null);
+
+  // Debug: Log when device list changes
+  useEffect(() => {
+    console.log(`[ConnectionScreen] availableDevices updated. Count: ${availableDevices.length}`);
+    if (availableDevices.length > 0) {
+      console.log('[ConnectionScreen] Device list:', availableDevices.map(d => `"${d.name}"`).join(', '));
+    }
+  }, [availableDevices]);
 
   const handleScan = async () => {
     if (isScanning) {
@@ -59,10 +67,12 @@ export const ConnectionScreen: React.FC = () => {
   };
 
   const renderDevice = ({ item }: { item: { id: string; name: string } }) => {
+    console.log(`Rendering device in UI: "${item.name}" | ID: ${item.id}`);
     const isBLE = item.name.toUpperCase().includes('BLE') || item.name.toUpperCase().includes('LE');
     
     return (
       <TouchableOpacity
+        key={item.id}
         style={[styles.deviceItem, isBLE && styles.deviceItemBLE]}
         onPress={() => handleConnect(item)}
         disabled={connecting !== null || data.isConnected}
@@ -136,7 +146,14 @@ export const ConnectionScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       ) : (
-        <>
+        <ScrollView style={styles.scrollContent} contentContainerStyle={styles.scrollContentContainer}>
+          {/* Debug info */}
+          <View style={styles.debugInfo}>
+            <Text style={styles.debugText}>
+              Scanning: {isScanning ? 'YES' : 'NO'} | Devices: {availableDevices.length}
+            </Text>
+          </View>
+
           <View style={styles.scanSection}>
             <View style={styles.filterToggle}>
               <Text style={styles.filterToggleLabel}>
@@ -177,50 +194,51 @@ export const ConnectionScreen: React.FC = () => {
             </View>
           )}
 
-          <FlatList
-            data={availableDevices}
-            keyExtractor={(item) => item.id}
-            renderItem={renderDevice}
-            style={styles.deviceList}
-            contentContainerStyle={styles.deviceListContent}
-            ListEmptyComponent={
-              !isScanning ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyText}>
-                    {showAllDevices ? 'No Bluetooth devices found' : 'No OBD devices found'}
-                  </Text>
-                  <Text style={styles.emptySubtext}>
-                    {showAllDevices ? (
-                      <>
-                        No Bluetooth devices were detected.
-                        {'\n\n'}Make sure:
-                        {'\n'}• Bluetooth is enabled on your phone
-                        {'\n'}• Your OBD adapter is powered on
-                        {'\n'}• Car ignition is ON
-                        {'\n'}• The adapter is within range
-                      </>
-                    ) : (
-                      <>
-                        Make sure your OBD-II adapter is:
-                        {'\n'}• Plugged into the car's OBD port
-                        {'\n'}• Powered on (ignition ON)
-                        {'\n'}• Within range (under dashboard)
-                        {'\n'}• Not paired in phone Bluetooth settings
-                        {'\n\n'}
-                        <Text style={styles.debugHighlight}>Can't find your adapter?</Text>
-                        {'\n'}1. Check the console logs for all detected devices
-                        {'\n'}2. Try enabling "Show all Bluetooth devices" above
-                      </>
-                    )}
+          <View style={styles.deviceListContainer}>
+            {availableDevices.length > 0 ? (
+              <>
+                <View style={styles.deviceListHeader}>
+                  <Text style={styles.deviceListHeaderText}>
+                    FOUND {availableDevices.length} DEVICE{availableDevices.length !== 1 ? 'S' : ''}
                   </Text>
                 </View>
-              ) : null
-            }
-          />
-        </>
-      )}
+                
+                {availableDevices.map((item) => renderDevice({ item }))}
+              </>
+            ) : !isScanning ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>
+                  {showAllDevices ? 'No Bluetooth devices found' : 'No OBD devices found'}
+                </Text>
+                <Text style={styles.emptySubtext}>
+                  {showAllDevices ? (
+                    <>
+                      No Bluetooth devices were detected.
+                      {'\n\n'}Make sure:
+                      {'\n'}• Bluetooth is enabled on your phone
+                      {'\n'}• Your OBD adapter is powered on
+                      {'\n'}• Car ignition is ON
+                      {'\n'}• The adapter is within range
+                    </>
+                  ) : (
+                    <>
+                      Make sure your OBD-II adapter is:
+                      {'\n'}• Plugged into the car's OBD port
+                      {'\n'}• Powered on (ignition ON)
+                      {'\n'}• Within range (under dashboard)
+                      {'\n'}• Not paired in phone Bluetooth settings
+                      {'\n\n'}
+                      <Text style={styles.debugHighlight}>Can't find your adapter?</Text>
+                      {'\n'}1. Check the console logs for all detected devices
+                      {'\n'}2. Try enabling "Show all Bluetooth devices" above
+                    </>
+                  )}
+                </Text>
+              </View>
+            ) : null}
+          </View>
 
-      <View style={styles.instructions}>
+          <View style={styles.instructions}>
         <Text style={styles.instructionTitle}>SETUP INSTRUCTIONS</Text>
         <Text style={styles.instructionText}>
           1. Plug your ELM327/OBD-II Bluetooth adapter into your car's OBD port
@@ -238,6 +256,8 @@ export const ConnectionScreen: React.FC = () => {
           {'\n'}Note: If you see two devices (e.g., "OBDII" and "OBDBLE"), choose the BLE version for better battery efficiency and reliability.
         </Text>
       </View>
+        </ScrollView>
+      )}
     </View>
   );
 };
@@ -370,22 +390,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: 'monospace',
   },
-  deviceList: {
-    flex: 1,
-    maxHeight: 200,
+  deviceListContainer: {
+    marginBottom: 16,
   },
-  deviceListContent: {
-    paddingBottom: 16,
+  deviceListHeader: {
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    padding: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  deviceListHeaderText: {
+    color: colors.primary,
+    fontSize: 12,
+    fontFamily: 'monospace',
+    fontWeight: 'bold',
+    letterSpacing: 2,
   },
   deviceItem: {
     backgroundColor: colors.backgroundSecondary,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: colors.gaugeBorder,
-    padding: 14,
-    marginBottom: 8,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    minHeight: 70,
   },
   deviceItemBLE: {
     borderColor: colors.primary,
@@ -451,6 +483,25 @@ const styles = StyleSheet.create({
     color: colors.warning,
     fontWeight: 'bold',
     fontSize: 12,
+  },
+  debugInfo: {
+    backgroundColor: 'rgba(255, 0, 0, 0.2)',
+    padding: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'red',
+  },
+  debugText: {
+    color: colors.primary,
+    fontSize: 10,
+    fontFamily: 'monospace',
+    textAlign: 'center',
+  },
+  scrollContent: {
+    flex: 1,
+  },
+  scrollContentContainer: {
+    paddingBottom: 16,
   },
   instructions: {
     backgroundColor: colors.backgroundSecondary,

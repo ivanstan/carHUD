@@ -260,6 +260,12 @@ class OBDService {
               const shouldShow = options?.showAllDevices || isLikelyOBD;
               
               if (shouldShow) {
+                // Skip if we've already added this device (prevent duplicates during scan)
+                if (this.scannedDevices.has(device.id)) {
+                  console.log(`  → Already in list, skipping duplicate`);
+                  return;
+                }
+                
                 if (options?.showAllDevices && !isLikelyOBD) {
                   console.log(`  → Showing device (ALL devices mode enabled)`);
                 } else {

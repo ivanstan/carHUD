@@ -139,17 +139,23 @@ export const useOBD = (): UseOBDResult => {
       setAvailableDevices([]);
 
       await obdService.scanForDevices((device: Device) => {
+        console.log(`Hook received device: "${device.name}" | ID: ${device.id}`);
         setAvailableDevices((prev) => {
           // Avoid duplicates
           if (prev.some((d) => d.id === device.id)) {
+            console.log(`  → Device already in UI list, skipping`);
             return prev;
           }
-          return [...prev, { id: device.id, name: device.name || 'Unknown Device' }];
+          const newList = [...prev, { id: device.id, name: device.name || 'Unknown Device' }];
+          console.log(`  → Added to UI list. Total devices in list: ${newList.length}`);
+          return newList;
         });
       }, { showAllDevices });
 
+      console.log(`Final device list in hook: ${availableDevices.length} devices`);
       setIsScanning(false);
     } catch (err) {
+      console.error('Scan error in hook:', err);
       setError(err instanceof Error ? err.message : 'Scan failed');
       setIsScanning(false);
     }
